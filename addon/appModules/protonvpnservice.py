@@ -2,7 +2,7 @@
 """
 Add-on NVDA - Module d'application ProtonVPN
 Fichier: protonvpnservice.py
-Version: 0.8.0
+Version: 0.8.1
 
 Améliore l'accessibilité de ProtonVPN avec :
 - Extraction des valeurs dynamiques via UIA (IP, Pays, Fournisseur)
@@ -22,7 +22,7 @@ RACCOURCIS (dans ProtonVPN uniquement):
 # ============================================================================
 from logHandler import log
 log.info("=" * 60)
-log.info("PROTONVPN: protonvpnservice.py v0.8.0 loading...")
+log.info("PROTONVPN: protonvpnservice.py v0.8.1 loading...")
 log.info("=" * 60)
 
 # ============================================================================
@@ -458,6 +458,90 @@ def is_vpn_plus_promo_button(obj):
         return False
 
 
+def is_overlay_promo_button(obj):
+    """
+    Détecte si l'objet est une carte promo dans OverlayMessage.
+    
+    Critères:
+    - FrameworkId == XAML
+    - Role == BUTTON (ou role focusable/invocable)
+    - Parent avec AutomationId == "OverlayMessage"
+    - Au moins 2 descendants Text visibles
+    - AutomationId vide (pas un bouton standard)
+    """
+    try:
+        # Vérifier FrameworkId
+        if get_framework_id(obj) != "XAML":
+            return False
+        
+        # Vérifier rôle (bouton ou custom invocable)
+        if obj.role != controlTypes.Role.BUTTON:
+            return False
+        
+        # AutomationId doit être vide (carte custom, pas bouton standard)
+        if get_automation_id(obj):
+            return False
+        
+        # DOIT avoir un parent avec AutomationId == "OverlayMessage"
+        if not has_parent_with_automation_id(obj, "OverlayMessage", 4):
+            return False
+        
+        # Doit avoir au moins 2 descendants Text
+        desc_texts = get_text_descendants(obj, max_depth=5)
+        if len(desc_texts) < 2:
+            return False
+        
+        if DEBUG_MODE:
+            log.info(f"PROTONVPN: OverlayPromoButton detected! ({len(desc_texts)} text descendants)")
+        
+        return True
+    except Exception as e:
+        log.error(f"PROTONVPN: is_overlay_promo_button error: {e}")
+        return False
+
+
+def extract_overlay_promo_text(obj):
+    """
+    Extrait et formate le texte de la carte promo OverlayMessage.
+    
+    Retourne un texte structuré pour l'annonce NVDA.
+    """
+    desc_texts = get_text_descendants(obj, max_depth=5)
+    
+    if not desc_texts:
+        return "Offre VPN Plus"
+    
+    # Extraire tous les textes
+    all_texts = [t[0].strip() for t in desc_texts if t[0] and t[0].strip()]
+    
+    if not all_texts:
+        return "Offre VPN Plus"
+    
+    # Construire un texte structuré
+    # Premier texte = titre/résumé principal
+    # Autres textes = détails
+    
+    # Joindre avec des points ou espaces
+    formatted_parts = []
+    for txt in all_texts:
+        # Nettoyer et ajouter ponctuation si nécessaire
+        txt = txt.strip()
+        if txt and not txt.endswith(('.', '!', '?')):
+            txt += '.'
+        formatted_parts.append(txt)
+    
+    result = ' '.join(formatted_parts)
+    
+    # Préfixer avec "VPN Plus" si pas déjà présent
+    if "vpn plus" not in result.lower():
+        result = "VPN Plus. " + result
+    
+    if DEBUG_MODE:
+        log.info(f"PROTONVPN: OverlayPromo text extracted: {result[:100]}...")
+    
+    return result
+
+
 
 def extract_vpn_plus_long_text(obj):
     """
@@ -700,7 +784,7 @@ def format_extended_uia_info(obj):
     
     lines = [
         "=" * 70,
-        "DEBUG ETENDU UIA - PROTONVPN v0.8.0",
+        "DEBUG ETENDU UIA - PROTONVPN v0.8.1",
         "=" * 70,
         "",
         "--- ELEMENT COURANT ---",
@@ -733,6 +817,18 @@ def format_extended_uia_info(obj):
     else:
         lines.append(f"Label                   : N/A")
         lines.append(f"ExtractedValue(s)       : N/A")
+    
+    # Ajouter détection OverlayPromoButton
+    is_overlay_promo = is_overlay_promo_button(obj)
+    lines.extend([
+        "",
+        "--- DETECTION OVERLAYPROMOBUTTON ---",
+        f"IsOverlayPromoButton    : {is_overlay_promo}",
+    ])
+    if is_overlay_promo:
+        lines.append(f"PromoText               : {extract_overlay_promo_text(obj)[:80]}...")
+    else:
+        lines.append(f"PromoText               : N/A")
     
     lines.extend([
         "",
@@ -819,6 +915,23 @@ class ProtonVPNConnectionDetailsButton(UIA):
             log.info(f"PROTONVPN: ConnectionDetailsButton.name → \"{result}\" (ID={automationId})")
         
         return result
+
+
+class ProtonVPNOverlayPromoButton(UIA):
+    """
+    Overlay pour la carte promo dans OverlayMessage.
+    
+    Construit dynamiquement un label à partir des descendants Text.
+    """
+
+    @property
+    def name(self):
+        promo_text = extract_overlay_promo_text(self)
+        
+        if DEBUG_MODE:
+            log.info(f"PROTONVPN: OverlayPromoButton.name → \"{promo_text[:60]}...\"")
+        
+        return promo_text
 
 
 class ProtonVPNPlusPromoButton(UIA):
@@ -944,7 +1057,7 @@ class AppModule(appModuleHandler.AppModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         log.info("=" * 60)
-        log.info("PROTONVPN: AppModule v0.8.0 loaded!")
+        log.info("PROTONVPN: AppModule v0.8.1 loaded!")
         log.info(f"PROTONVPN: DEBUG_MODE = {DEBUG_MODE}")
         log.info("=" * 60)
         if DEBUG_MODE:
@@ -970,7 +1083,13 @@ class AppModule(appModuleHandler.AppModule):
                     if DEBUG_MODE:
                         log.debug("PROTONVPN: → ProtonVPNPlusPromoButton")
                 
-                # 3) Boutons ConnectionDetailsPage (IP VPN, Trafic - VPN connecté)
+                # 3) Carte promo OverlayMessage
+                elif is_overlay_promo_button(obj):
+                    clsList.insert(0, ProtonVPNOverlayPromoButton)
+                    if DEBUG_MODE:
+                        log.debug("PROTONVPN: → ProtonVPNOverlayPromoButton")
+                
+                # 4) Boutons ConnectionDetailsPage (IP VPN, Trafic - VPN connecté)
                 elif is_connection_details_dynamic_button(obj):
                     clsList.insert(0, ProtonVPNConnectionDetailsButton)
                     if DEBUG_MODE:
