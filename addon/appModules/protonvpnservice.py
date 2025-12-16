@@ -2,7 +2,7 @@
 """
 Add-on NVDA - Module d'application ProtonVPN
 Fichier: protonvpnservice.py
-Version: 0.9.0
+Version: 0.9.1
 
 Améliore l'accessibilité de ProtonVPN avec :
 - Extraction des valeurs dynamiques via UIA (IP, Pays, Fournisseur)
@@ -22,7 +22,7 @@ RACCOURCIS (dans ProtonVPN uniquement):
 # ============================================================================
 from logHandler import log
 log.info("=" * 60)
-log.info("PROTONVPN: protonvpnservice.py v0.9.0 loading...")
+log.info("PROTONVPN: protonvpnservice.py v0.9.1 loading...")
 log.info("=" * 60)
 
 # ============================================================================
@@ -784,7 +784,7 @@ def format_extended_uia_info(obj):
     
     lines = [
         "=" * 70,
-        "DEBUG ETENDU UIA - PROTONVPN v0.9.0",
+        "DEBUG ETENDU UIA - PROTONVPN v0.9.1",
         "=" * 70,
         "",
         "--- ELEMENT COURANT ---",
@@ -1057,7 +1057,7 @@ class AppModule(appModuleHandler.AppModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         log.info("=" * 60)
-        log.info("PROTONVPN: AppModule v0.9.0 loaded!")
+        log.info("PROTONVPN: AppModule v0.9.1 loaded!")
         log.info(f"PROTONVPN: DEBUG_MODE = {DEBUG_MODE}")
         log.info("=" * 60)
         if DEBUG_MODE:
@@ -1198,29 +1198,86 @@ class AppModule(appModuleHandler.AppModule):
         """Connecter ou déconnecter le VPN."""
         log.info("PROTONVPN: script_toggleVPN triggered!")
         
-        # Chercher le bouton de connexion
-        btn = self._find_element_by_automation_id("ConnectionCardConnectButton")
+        # Chercher d'abord le bouton Déconnecter (si VPN connecté)
+        btn = self._find_element_by_automation_id("ConnectionCardDisconnectButton")
+        is_disconnecting = True
+        
+        if not btn:
+            # Sinon chercher le bouton Connecter (VPN déconnecté)
+            btn = self._find_element_by_automation_id("ConnectionCardConnectButton")
+            is_disconnecting = False
+        
+        if not btn:
+            # Fallback : chercher par Name
+            log.info("PROTONVPN: Searching buttons by name...")
+            fg = api.getForegroundObject()
+            if fg:
+                def find_by_name(obj, depth=0):
+                    if depth > 15:
+                        return None
+                    try:
+                        name = (obj.name or "").lower()
+                        if obj.role == controlTypes.Role.BUTTON:
+                            if "déconnecter" in name or "disconnect" in name:
+                                return (obj, True)
+                            elif "connecter" in name or "connect" in name:
+                                return (obj, False)
+                        for child in obj.children:
+                            result = find_by_name(child, depth + 1)
+                            if result:
+                                return result
+                    except:
+                        pass
+                    return None
+                
+                result = find_by_name(fg)
+                if result:
+                    btn, is_disconnecting = result
         
         if not btn:
             ui.message("Bouton connexion introuvable")
+            log.error("PROTONVPN: Neither Connect nor Disconnect button found")
             return
         
-        # Déterminer l'état actuel
-        btn_name = btn.name or ""
-        if "disconnect" in btn_name.lower() or "déconnect" in btn_name.lower():
-            action = "Déconnexion"
-            result = "VPN déconnecté"
+        # Annoncer immédiatement l'action
+        if is_disconnecting:
+            ui.message("Déconnexion")
+            log.info("PROTONVPN: Disconnecting VPN...")
         else:
-            action = "Connexion"
-            result = "VPN connecté"
+            ui.message("Connexion")
+            log.info("PROTONVPN: Connecting VPN...")
         
-        ui.message(action)
-        
+        # Invoquer le bouton
         if self._invoke_element(btn):
-            log.info(f"PROTONVPN: {result}")
-            # L'annonce du résultat sera faite par ProtonVPN lui-même
+            log.info("PROTONVPN: Button invoked successfully")
+            # Lancer la confirmation d'état en différé
+            try:
+                import wx
+                wx.CallLater(1500, self._confirm_vpn_state, is_disconnecting)
+            except:
+                # Si wx n'est pas dispo, ignorer la confirmation
+                pass
         else:
             ui.message("Action indisponible")
+    
+    def _confirm_vpn_state(self, was_disconnecting):
+        """Confirme l'état du VPN après l'action (appelé en différé)."""
+        try:
+            # Vérifier si le bouton opposé est maintenant visible
+            if was_disconnecting:
+                # On vient de déconnecter, on devrait voir le bouton Connect
+                btn = self._find_element_by_automation_id("ConnectionCardConnectButton")
+                if btn:
+                    ui.message("VPN déconnecté")
+                    log.info("PROTONVPN: VPN disconnected confirmed")
+            else:
+                # On vient de connecter, on devrait voir le bouton Disconnect
+                btn = self._find_element_by_automation_id("ConnectionCardDisconnectButton")
+                if btn:
+                    ui.message("VPN connecté")
+                    log.info("PROTONVPN: VPN connected confirmed")
+        except Exception as e:
+            log.error(f"PROTONVPN: _confirm_vpn_state error: {e}")
     
     script_toggleVPN.__doc__ = "Connecter ou déconnecter le VPN (toggle)"
     script_toggleVPN.category = "ProtonVPN"
