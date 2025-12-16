@@ -2,7 +2,7 @@
 """
 Add-on NVDA - Module d'application ProtonVPN
 Fichier: protonvpnservice.py
-Version: 0.7.0
+Version: 0.8.0
 
 Améliore l'accessibilité de ProtonVPN avec :
 - Extraction des valeurs dynamiques via UIA (IP, Pays, Fournisseur)
@@ -22,7 +22,7 @@ RACCOURCIS (dans ProtonVPN uniquement):
 # ============================================================================
 from logHandler import log
 log.info("=" * 60)
-log.info("PROTONVPN: protonvpnservice.py v0.7.0 loading...")
+log.info("PROTONVPN: protonvpnservice.py v0.8.0 loading...")
 log.info("=" * 60)
 
 # ============================================================================
@@ -489,6 +489,95 @@ def extract_vpn_plus_long_text(obj):
 
 
 # ============================================================================
+# DETECTION BOUTONS CONNECTIONDETAILSPAGE (VPN connecté)
+# ============================================================================
+
+def is_connection_details_dynamic_button(obj):
+    """
+    Détecte si l'objet est un bouton dynamique de ConnectionDetailsPage.
+    
+    Ces boutons apparaissent quand le VPN est connecté et affichent:
+    - Adresse IP du VPN (ShowIpFlyoutButton)
+    - Trafic total (ShowVolumeFlyoutButton)
+    - Trafic actuel (E)
+    """
+    try:
+        if obj.role != controlTypes.Role.BUTTON:
+            return False
+        
+        if get_framework_id(obj) != "XAML":
+            return False
+        
+        # Vérifier si parent contient ConnectionDetailsPage
+        if has_parent_with_automation_id(obj, "ConnectionDetailsPage", 4):
+            return True
+        
+        return False
+    except Exception as e:
+        log.error(f"PROTONVPN: is_connection_details_dynamic_button error: {e}")
+        return False
+
+
+def extract_connection_details_label_and_values(obj):
+    """
+    Extrait le label et les valeurs d'un bouton ConnectionDetailsPage.
+    
+    Retourne (label, values_list) :
+    - label = premier texte descriptif (ex: "Adresse IP du VPN", "Trafic total")
+    - values_list = liste des valeurs dynamiques (ex: ["37.19.199.137"] ou ["416 o/s", "0 o/s"])
+    """
+    desc_texts = get_text_descendants(obj, max_depth=5)
+    
+    if not desc_texts:
+        # Fallback: utiliser le nom de l'objet et l'AutomationId
+        automationId = get_automation_id(obj)
+        original_name = obj.name or ""
+        
+        label_mapping = {
+            "ShowIpFlyoutButton": "Adresse IP du VPN",
+            "ShowVolumeFlyoutButton": "Trafic total",
+            "E": "Trafic actuel (Ko/s)",
+        }
+        label = label_mapping.get(automationId, "Info VPN")
+        values = [original_name] if original_name else []
+        return label, values
+    
+    # Extraire tous les textes
+    all_texts = [t[0] for t in desc_texts if t[0]]
+    
+    if not all_texts:
+        return "Info VPN", []
+    
+    # Le premier texte est généralement le label
+    # Les suivants sont les valeurs
+    label = all_texts[0]
+    values = all_texts[1:] if len(all_texts) > 1 else []
+    
+    # Heuristiques pour identifier le label vs les valeurs
+    # Les labels contiennent généralement des mots comme "Adresse", "Trafic", "IP", etc.
+    label_keywords = ["adresse", "ip", "trafic", "volume", "actuel", "total", "ko/s", "o/s"]
+    
+    # Vérifier si le premier élément ressemble vraiment à un label
+    first_lower = all_texts[0].lower()
+    is_first_a_label = any(kw in first_lower for kw in label_keywords)
+    
+    if not is_first_a_label and len(all_texts) > 1:
+        # Le premier n'est pas un label, c'est peut-être une valeur
+        # Chercher un vrai label dans les textes suivants
+        for i, txt in enumerate(all_texts[1:], 1):
+            if any(kw in txt.lower() for kw in label_keywords):
+                # Trouvé un label, réorganiser
+                label = txt
+                values = all_texts[:i] + all_texts[i+1:]
+                break
+    
+    if DEBUG_MODE:
+        log.info(f"PROTONVPN: ConnectionDetails extraction - label='{label}', values={values}")
+    
+    return label, values
+
+
+# ============================================================================
 # WIDGETS COLONNE DROITE
 # ============================================================================
 
@@ -611,7 +700,7 @@ def format_extended_uia_info(obj):
     
     lines = [
         "=" * 70,
-        "DEBUG ETENDU UIA - PROTONVPN v0.7.0",
+        "DEBUG ETENDU UIA - PROTONVPN v0.8.0",
         "=" * 70,
         "",
         "--- ELEMENT COURANT ---",
@@ -632,8 +721,23 @@ def format_extended_uia_info(obj):
         f"IsVPNPlusPromoButton    : {is_vpn_plus}",
         f"LongText                : {vpn_plus_text[:100] if vpn_plus_text else 'N/A'}...",
         "",
-        "--- DESCENDANTS TEXT ---",
+        "--- DETECTION CONNECTIONDETAILSPAGE ---",
+        f"IsConnectionDetailsBtn  : {is_connection_details_dynamic_button(obj)}",
     ]
+    
+    # Ajouter extraction ConnectionDetails si applicable
+    if is_connection_details_dynamic_button(obj):
+        conn_label, conn_values = extract_connection_details_label_and_values(obj)
+        lines.append(f"Label                   : {conn_label}")
+        lines.append(f"ExtractedValue(s)       : {', '.join(conn_values) if conn_values else 'N/A'}")
+    else:
+        lines.append(f"Label                   : N/A")
+        lines.append(f"ExtractedValue(s)       : N/A")
+    
+    lines.extend([
+        "",
+        "--- DESCENDANTS TEXT ---",
+    ])
     
     for i, (text, trect) in enumerate(desc_texts[:10]):
         lines.append(f"  [{i}] \"{text}\" @ {trect}")
@@ -689,6 +793,30 @@ class ProtonVPNLocationDetailsButton(UIA):
         
         if DEBUG_MODE:
             log.info(f"PROTONVPN: LocationDetailsButton.name → \"{result}\" (index={index})")
+        
+        return result
+
+
+class ProtonVPNConnectionDetailsButton(UIA):
+    """
+    Overlay pour les boutons dynamiques de ConnectionDetailsPage.
+    
+    Annonce: "Label : Valeur(s)" (ex: "Adresse IP du VPN : 37.19.199.137")
+    """
+
+    @property
+    def name(self):
+        automationId = get_automation_id(self)
+        label, values = extract_connection_details_label_and_values(self)
+        
+        if values:
+            values_str = ", ".join(values)
+            result = f"{label} : {values_str}"
+        else:
+            result = label
+        
+        if DEBUG_MODE:
+            log.info(f"PROTONVPN: ConnectionDetailsButton.name → \"{result}\" (ID={automationId})")
         
         return result
 
@@ -816,7 +944,7 @@ class AppModule(appModuleHandler.AppModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         log.info("=" * 60)
-        log.info("PROTONVPN: AppModule v0.7.0 loaded!")
+        log.info("PROTONVPN: AppModule v0.8.0 loaded!")
         log.info(f"PROTONVPN: DEBUG_MODE = {DEBUG_MODE}")
         log.info("=" * 60)
         if DEBUG_MODE:
@@ -842,7 +970,13 @@ class AppModule(appModuleHandler.AppModule):
                     if DEBUG_MODE:
                         log.debug("PROTONVPN: → ProtonVPNPlusPromoButton")
                 
-                # 3) Boutons LocationDetailsPage (IP/Pays/Fournisseur)
+                # 3) Boutons ConnectionDetailsPage (IP VPN, Trafic - VPN connecté)
+                elif is_connection_details_dynamic_button(obj):
+                    clsList.insert(0, ProtonVPNConnectionDetailsButton)
+                    if DEBUG_MODE:
+                        log.debug("PROTONVPN: → ProtonVPNConnectionDetailsButton")
+                
+                # 4) Boutons LocationDetailsPage (IP/Pays/Fournisseur)
                 elif is_location_details_dynamic_button(obj):
                     clsList.insert(0, ProtonVPNLocationDetailsButton)
                     if DEBUG_MODE:
