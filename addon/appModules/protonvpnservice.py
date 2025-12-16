@@ -2,7 +2,7 @@
 """
 Add-on NVDA - Module d'application ProtonVPN
 Fichier: protonvpnservice.py
-Version: 0.8.1
+Version: 0.9.0
 
 Améliore l'accessibilité de ProtonVPN avec :
 - Extraction des valeurs dynamiques via UIA (IP, Pays, Fournisseur)
@@ -22,7 +22,7 @@ RACCOURCIS (dans ProtonVPN uniquement):
 # ============================================================================
 from logHandler import log
 log.info("=" * 60)
-log.info("PROTONVPN: protonvpnservice.py v0.8.1 loading...")
+log.info("PROTONVPN: protonvpnservice.py v0.9.0 loading...")
 log.info("=" * 60)
 
 # ============================================================================
@@ -784,7 +784,7 @@ def format_extended_uia_info(obj):
     
     lines = [
         "=" * 70,
-        "DEBUG ETENDU UIA - PROTONVPN v0.8.1",
+        "DEBUG ETENDU UIA - PROTONVPN v0.9.0",
         "=" * 70,
         "",
         "--- ELEMENT COURANT ---",
@@ -1057,7 +1057,7 @@ class AppModule(appModuleHandler.AppModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         log.info("=" * 60)
-        log.info("PROTONVPN: AppModule v0.8.1 loaded!")
+        log.info("PROTONVPN: AppModule v0.9.0 loaded!")
         log.info(f"PROTONVPN: DEBUG_MODE = {DEBUG_MODE}")
         log.info("=" * 60)
         if DEBUG_MODE:
@@ -1119,124 +1119,256 @@ class AppModule(appModuleHandler.AppModule):
         super().chooseNVDAObjectOverlayClasses(obj, clsList)
 
     # ========================================================================
-    # SCRIPTS
+    # SCRIPTS - ACTIONS VPN
     # ========================================================================
     
-    def script_testHello(self, gesture):
-        """Script de test."""
-        log.info("PROTONVPN: testHello triggered!")
-        ui.message("ProtonVPN, script de test OK")
-
-    script_testHello.__doc__ = "Script de test ProtonVPN"
-    script_testHello.category = "ProtonVPN"
-
-    def script_reportCurrentControlInfo(self, gesture):
-        """Inspecte l'élément focalisé (infos basiques)."""
-        log.info("PROTONVPN: reportCurrentControlInfo triggered!")
-        obj = api.getFocusObject()
-        if not obj:
-            ui.message("Aucun élément focalisé")
-            return
-        info = get_uia_info(obj)
-        text = format_uia_info(info)
-        for line in text.split("\n"):
-            log.info(f"PROTONVPN: {line}")
-        if copy_to_clipboard(text):
-            ui.message("Infos UIA copiées")
-        else:
-            ui.message("Erreur copie")
-
-    script_reportCurrentControlInfo.__doc__ = "Inspecte le contrôle (infos basiques)"
-    script_reportCurrentControlInfo.category = "ProtonVPN"
-
-    def script_saveControlInfoToFile(self, gesture):
-        """Sauvegarde les infos UIA dans uiainfo.txt."""
-        log.info("PROTONVPN: saveControlInfoToFile triggered!")
-        obj = api.getFocusObject()
-        if not obj:
-            ui.message("Aucun élément focalisé")
-            return
-        info = get_uia_info(obj)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        line = f"[{timestamp}] Nom={info.get('name')} | ID={info.get('automationId')} | Role={info.get('role')}"
-        file_path = get_uia_info_file_path()
+    def _find_element_by_automation_id(self, target_id, max_depth=10):
+        """
+        Recherche un élément UIA par AutomationId dans l'arbre.
+        Retourne l'objet NVDA ou None.
+        """
         try:
-            with open(file_path, 'a', encoding='utf-8') as f:
-                f.write(line + "\n")
-            log.info(f"PROTONVPN: Wrote to {file_path}")
-            ui.message("UIA enregistré")
+            from NVDAObjects import NVDAObject
+            import UIAHandler
+            
+            # Obtenir la fenêtre principale
+            fg = api.getForegroundObject()
+            if not fg:
+                return None
+            
+            # Rechercher récursivement
+            def search(obj, depth):
+                if depth > max_depth:
+                    return None
+                try:
+                    if get_automation_id(obj) == target_id:
+                        return obj
+                    for child in obj.children:
+                        result = search(child, depth + 1)
+                        if result:
+                            return result
+                except:
+                    pass
+                return None
+            
+            return search(fg, 0)
         except Exception as e:
-            log.error(f"PROTONVPN: Write error: {e}")
-            ui.message(f"Erreur: {e}")
-
-    script_saveControlInfoToFile.__doc__ = "Sauvegarde les infos UIA"
-    script_saveControlInfoToFile.category = "ProtonVPN"
-
-    def script_extendedDebug(self, gesture):
-        """Debug étendu avec descendants Text et extraction dynamique."""
-        log.info("PROTONVPN: extendedDebug triggered!")
-        obj = api.getFocusObject()
-        if not obj:
-            ui.message("Aucun élément focalisé")
-            return
-        text = format_extended_uia_info(obj)
-        for line in text.split("\n"):
-            log.info(f"PROTONVPN: {line}")
-        if copy_to_clipboard(text):
-            ui.message("Debug étendu copié")
-        else:
-            ui.message("Debug logué, erreur copie")
-        debug_file = os.path.join(get_addon_path(), "uia_debug.txt")
+            log.error(f"PROTONVPN: _find_element_by_automation_id error: {e}")
+            return None
+    
+    def _invoke_element(self, obj):
+        """Invoque un élément (clic/appui Entrée)."""
         try:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            with open(debug_file, 'a', encoding='utf-8') as f:
-                f.write(f"\n{'='*70}\nCAPTURE: {timestamp}\n{text}\n")
-            log.info(f"PROTONVPN: Debug saved to {debug_file}")
+            if hasattr(obj, 'UIAElement') and obj.UIAElement:
+                # Essayer InvokePattern
+                try:
+                    import UIAHandler
+                    pattern = obj.UIAElement.GetCurrentPattern(UIAHandler.UIA_InvokePatternId)
+                    if pattern:
+                        pattern.QueryInterface(UIAHandler.IUIAutomationInvokePattern).Invoke()
+                        return True
+                except:
+                    pass
+            
+            # Fallback: doAction
+            try:
+                obj.doAction()
+                return True
+            except:
+                pass
+            
+            # Fallback: focus + Enter
+            try:
+                obj.setFocus()
+                import time
+                time.sleep(0.1)
+                import winUser
+                winUser.sendMessage(obj.windowHandle, 0x0100, 0x0D, 0)  # WM_KEYDOWN VK_RETURN
+                winUser.sendMessage(obj.windowHandle, 0x0101, 0x0D, 0)  # WM_KEYUP VK_RETURN
+                return True
+            except:
+                pass
+            
+            return False
         except Exception as e:
-            log.error(f"PROTONVPN: Debug file error: {e}")
-
-    script_extendedDebug.__doc__ = "Debug étendu UIA avec extraction valeurs"
-    script_extendedDebug.category = "ProtonVPN"
-
-    def script_readLongDescription(self, gesture):
-        """Lit le texte long (description) de l'élément focalisé."""
-        log.info("PROTONVPN: readLongDescription triggered!")
-        obj = api.getFocusObject()
-        if not obj:
-            ui.message("Aucun élément focalisé")
+            log.error(f"PROTONVPN: _invoke_element error: {e}")
+            return False
+    
+    def script_toggleVPN(self, gesture):
+        """Connecter ou déconnecter le VPN."""
+        log.info("PROTONVPN: script_toggleVPN triggered!")
+        
+        # Chercher le bouton de connexion
+        btn = self._find_element_by_automation_id("ConnectionCardConnectButton")
+        
+        if not btn:
+            ui.message("Bouton connexion introuvable")
             return
         
-        # Récupérer la description
-        desc = getattr(obj, 'description', None) or ""
-        
-        # Si pas de description, essayer d'extraire le texte long
-        if not desc and is_vpn_plus_promo_button(obj):
-            desc = extract_vpn_plus_long_text(obj)
-        
-        if desc:
-            speech.speakMessage(desc)
-            log.info(f"PROTONVPN: Read long description: {desc[:80]}...")
+        # Déterminer l'état actuel
+        btn_name = btn.name or ""
+        if "disconnect" in btn_name.lower() or "déconnect" in btn_name.lower():
+            action = "Déconnexion"
+            result = "VPN déconnecté"
         else:
-            ui.message("Pas de description disponible")
-
-    script_readLongDescription.__doc__ = "Lit le texte long du bouton VPN Plus"
-    script_readLongDescription.category = "ProtonVPN"
+            action = "Connexion"
+            result = "VPN connecté"
+        
+        ui.message(action)
+        
+        if self._invoke_element(btn):
+            log.info(f"PROTONVPN: {result}")
+            # L'annonce du résultat sera faite par ProtonVPN lui-même
+        else:
+            ui.message("Action indisponible")
+    
+    script_toggleVPN.__doc__ = "Connecter ou déconnecter le VPN (toggle)"
+    script_toggleVPN.category = "ProtonVPN"
+    
+    def script_toggleKillSwitch(self, gesture):
+        """Activer ou désactiver le Kill Switch."""
+        log.info("PROTONVPN: script_toggleKillSwitch triggered!")
+        
+        # Le Kill Switch est accessible via WidgetButton (index 1 dans les widgets)
+        # On cherche via les éléments avec AutomationId == "WidgetButton"
+        try:
+            fg = api.getForegroundObject()
+            if not fg:
+                ui.message("Action indisponible")
+                return
+            
+            # Chercher tous les WidgetButton
+            widgets = []
+            def find_widgets(obj, depth=0):
+                if depth > 15:
+                    return
+                try:
+                    if get_automation_id(obj) == "WidgetButton":
+                        widgets.append(obj)
+                    for child in obj.children:
+                        find_widgets(child, depth + 1)
+                except:
+                    pass
+            
+            find_widgets(fg)
+            
+            # Le Kill Switch est généralement le 2ème widget (index 1)
+            if len(widgets) >= 2:
+                kill_switch_btn = widgets[1]
+                ui.message("Kill Switch")
+                if self._invoke_element(kill_switch_btn):
+                    log.info("PROTONVPN: Kill Switch toggled")
+                else:
+                    ui.message("Action indisponible")
+            else:
+                ui.message("Kill Switch introuvable")
+        except Exception as e:
+            log.error(f"PROTONVPN: script_toggleKillSwitch error: {e}")
+            ui.message("Action indisponible")
+    
+    script_toggleKillSwitch.__doc__ = "Activer ou désactiver le Kill Switch"
+    script_toggleKillSwitch.category = "ProtonVPN"
+    
+    def script_openCountrySelector(self, gesture):
+        """Ouvrir le sélecteur de pays."""
+        log.info("PROTONVPN: script_openCountrySelector triggered!")
+        
+        # Chercher le bouton de sélection de pays
+        # C'est généralement le premier bouton sous LocationDetailsPage (index 1 = Pays)
+        try:
+            fg = api.getForegroundObject()
+            if not fg:
+                ui.message("Action indisponible")
+                return
+            
+            # Chercher les boutons sous LocationDetailsPage
+            location_btns = []
+            def find_location_btns(obj, depth=0):
+                if depth > 15:
+                    return
+                try:
+                    if is_location_details_dynamic_button(obj):
+                        location_btns.append(obj)
+                    for child in obj.children:
+                        find_location_btns(child, depth + 1)
+                except:
+                    pass
+            
+            find_location_btns(fg)
+            
+            # Le bouton Pays est généralement le 2ème (index 1)
+            if len(location_btns) >= 2:
+                country_btn = location_btns[1]
+                ui.message("Sélecteur de pays")
+                if self._invoke_element(country_btn):
+                    log.info("PROTONVPN: Country selector opened")
+                else:
+                    ui.message("Action indisponible")
+            else:
+                ui.message("Sélecteur de pays introuvable")
+        except Exception as e:
+            log.error(f"PROTONVPN: script_openCountrySelector error: {e}")
+            ui.message("Action indisponible")
+    
+    script_openCountrySelector.__doc__ = "Ouvrir le sélecteur de pays"
+    script_openCountrySelector.category = "ProtonVPN"
+    
+    def script_announceTraffic(self, gesture):
+        """Annoncer les informations de trafic."""
+        log.info("PROTONVPN: script_announceTraffic triggered!")
+        
+        try:
+            fg = api.getForegroundObject()
+            if not fg:
+                ui.message("Action indisponible")
+                return
+            
+            traffic_info = []
+            
+            # Chercher les boutons de trafic sous ConnectionDetailsPage
+            def find_traffic_btns(obj, depth=0):
+                if depth > 15:
+                    return
+                try:
+                    if is_connection_details_dynamic_button(obj):
+                        automationId = get_automation_id(obj)
+                        # ShowVolumeFlyoutButton = Trafic total
+                        # E = Trafic actuel
+                        if automationId in ("ShowVolumeFlyoutButton", "E"):
+                            label, values = extract_connection_details_label_and_values(obj)
+                            if values:
+                                traffic_info.append(f"{label} : {', '.join(values)}")
+                    for child in obj.children:
+                        find_traffic_btns(child, depth + 1)
+                except:
+                    pass
+            
+            find_traffic_btns(fg)
+            
+            if traffic_info:
+                message = ". ".join(traffic_info)
+                ui.message(message)
+                log.info(f"PROTONVPN: Traffic announced: {message}")
+            else:
+                ui.message("Informations de trafic indisponibles. VPN non connecté?")
+        except Exception as e:
+            log.error(f"PROTONVPN: script_announceTraffic error: {e}")
+            ui.message("Action indisponible")
+    
+    script_announceTraffic.__doc__ = "Annoncer les informations de trafic"
+    script_announceTraffic.category = "ProtonVPN"
 
     # ========================================================================
     # RACCOURCIS
     # ========================================================================
     __gestures = {
-        "kb:control+shift+i": "reportCurrentControlInfo",
-        "kb:control+shift+u": "saveControlInfoToFile",
-        "kb:control+shift+j": "extendedDebug",
-        "kb:control+shift+l": "readLongDescription",  # Nouveau!
-        "kb:nvda+control+shift+i": "reportCurrentControlInfo",
-        "kb:nvda+control+shift+u": "saveControlInfoToFile",
-        "kb:nvda+control+shift+j": "extendedDebug",
-        "kb:nvda+control+shift+l": "readLongDescription",
-        "kb:nvda+alt+shift+h": "testHello",
+        "kb:control+shift+d": "toggleVPN",
+        "kb:control+shift+k": "toggleKillSwitch",
+        "kb:control+shift+c": "openCountrySelector",
+        "kb:control+shift+t": "announceTraffic",
     }
 
 
 log.info("PROTONVPN: AppModule class defined successfully")
 log.info("=" * 60)
+
