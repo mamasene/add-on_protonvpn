@@ -2,7 +2,7 @@
 """
 Add-on NVDA - Module d'application ProtonVPN
 Fichier: protonvpnservice.py
-Version: 0.9.1
+Version: 1.0.0
 
 Améliore l'accessibilité de ProtonVPN avec :
 - Extraction des valeurs dynamiques via UIA (IP, Pays, Fournisseur)
@@ -22,7 +22,7 @@ RACCOURCIS (dans ProtonVPN uniquement):
 # ============================================================================
 from logHandler import log
 log.info("=" * 60)
-log.info("PROTONVPN: protonvpnservice.py v0.9.1 loading...")
+log.info("PROTONVPN: protonvpnservice.py v1.0.0 loading...")
 log.info("=" * 60)
 
 # ============================================================================
@@ -784,7 +784,7 @@ def format_extended_uia_info(obj):
     
     lines = [
         "=" * 70,
-        "DEBUG ETENDU UIA - PROTONVPN v0.9.1",
+        "DEBUG ETENDU UIA - PROTONVPN v1.0.0",
         "=" * 70,
         "",
         "--- ELEMENT COURANT ---",
@@ -1057,7 +1057,7 @@ class AppModule(appModuleHandler.AppModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         log.info("=" * 60)
-        log.info("PROTONVPN: AppModule v0.9.1 loaded!")
+        log.info("PROTONVPN: AppModule v1.0.0 loaded!")
         log.info(f"PROTONVPN: DEBUG_MODE = {DEBUG_MODE}")
         log.info("=" * 60)
         if DEBUG_MODE:

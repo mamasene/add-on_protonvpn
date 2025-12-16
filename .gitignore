@@ -19,8 +19,6 @@ desktop.ini
 
 # Generated files
 addon/manifest.ini
-addon/doc/en/readme.html
-addon/doc/*/readme.html
 
 # Temporary files
 *.tmp

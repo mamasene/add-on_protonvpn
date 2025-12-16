@@ -1,0 +1,158 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProtonVPN Accessibility – NVDA Add-on</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        h1 {
+            color: #6d4aff;
+        }
+
+        h2 {
+            color: #333;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #6d4aff;
+            color: white;
+        }
+
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .note {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-left: 3px solid #6d4aff;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>ProtonVPN Accessibility – NVDA Add-on</h1>
+
+    <h2>Purpose</h2>
+    <p>Enhances ProtonVPN (Windows) accessibility with NVDA via UI Automation (XAML): control labeling and dynamic
+        information reading.</p>
+
+    <h2>Features</h2>
+    <ul>
+        <li><strong>Button fixes</strong>: Unlabeled or poorly labeled buttons are automatically corrected</li>
+        <li><strong>Dynamic announcements</strong>: Label + value announced together (IP, country, provider, etc.)</li>
+        <li><strong>Connected VPN support</strong>: VPN IP, total traffic, real-time traffic</li>
+        <li><strong>Promotional cards</strong>: Overlays and promo cards are properly labeled</li>
+    </ul>
+
+    <h2>Keyboard Shortcuts</h2>
+    <p>The following shortcuts are available only when ProtonVPN is in the foreground:</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Shortcut</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>Ctrl+Shift+D</code></td>
+                <td>Connect / Disconnect VPN</td>
+            </tr>
+            <tr>
+                <td><code>Ctrl+Shift+K</code></td>
+                <td>Toggle Kill Switch</td>
+            </tr>
+            <tr>
+                <td><code>Ctrl+Shift+C</code></td>
+                <td>Open country selector</td>
+            </tr>
+            <tr>
+                <td><code>Ctrl+Shift+T</code></td>
+                <td>Announce traffic info</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Enhanced Announcements</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Element</th>
+                <th>Example</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Local IP</td>
+                <td>"Your IP address: 212.133.41.101"</td>
+            </tr>
+            <tr>
+                <td>Country</td>
+                <td>"Country: France"</td>
+            </tr>
+            <tr>
+                <td>Provider</td>
+                <td>"Provider: Lumen"</td>
+            </tr>
+            <tr>
+                <td>VPN IP</td>
+                <td>"VPN IP address: 37.19.199.137"</td>
+            </tr>
+            <tr>
+                <td>Total traffic</td>
+                <td>"Total traffic: 12 MB"</td>
+            </tr>
+            <tr>
+                <td>Current traffic</td>
+                <td>"Current traffic: 416 B/s, 0 B/s"</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Compatibility</h2>
+    <ul>
+        <li>NVDA 2023.1 and later</li>
+        <li>ProtonVPN for Windows</li>
+    </ul>
+
+    <h2>Author</h2>
+    <p><strong>Mama Sene</strong></p>
+
+    <div class="note">
+        <strong>Note:</strong> Community project, not affiliated with Proton AG.
+    </div>
+
+    <h2>License</h2>
+    <p>GPL v2</p>
+</body>
+
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProtonVPN Accessibility – NVDA Add-on</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        h1 {
+            color: #6d4aff;
+        }
+
+        h2 {
+            color: #333;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #6d4aff;
+            color: white;
+        }
+
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .note {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-left: 3px solid #6d4aff;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>ProtonVPN Accessibility – NVDA Add-on</h1>
+
+    <h2>Objectif</h2>
+    <p>Améliore l'accessibilité de ProtonVPN (Windows) avec NVDA via UI Automation (XAML) : labellisation des contrôles
+        et lecture d'informations dynamiques.</p>
+
+    <h2>Fonctionnalités</h2>
+    <ul>
+        <li><strong>Correction des boutons</strong> : Les boutons sans nom ou mal labellisés sont corrigés
+            automatiquement</li>
+        <li><strong>Annonces dynamiques</strong> : Label + valeur annoncés ensemble (IP, pays, fournisseur, etc.)</li>
+        <li><strong>Support VPN connecté</strong> : IP VPN, trafic total, trafic en temps réel</li>
+        <li><strong>Cartes promotionnelles</strong> : Les overlays et cartes promo sont labellisés correctement</li>
+    </ul>
+
+    <h2>Raccourcis clavier</h2>
+    <p>Les raccourcis suivants sont disponibles uniquement lorsque ProtonVPN est au premier plan :</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Raccourci</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>Ctrl+Shift+D</code></td>
+                <td>Connecter / Déconnecter le VPN</td>
+            </tr>
+            <tr>
+                <td><code>Ctrl+Shift+K</code></td>
+                <td>Activer / Désactiver le Kill Switch</td>
+            </tr>
+            <tr>
+                <td><code>Ctrl+Shift+C</code></td>
+                <td>Ouvrir le sélecteur de pays</td>
+            </tr>
+            <tr>
+                <td><code>Ctrl+Shift+T</code></td>
+                <td>Annoncer le trafic (actuel + total)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Annonces améliorées</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Élément</th>
+                <th>Exemple d'annonce</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>IP locale</td>
+                <td>"Votre adresse IP : 212.133.41.101"</td>
+            </tr>
+            <tr>
+                <td>Pays</td>
+                <td>"Pays : France"</td>
+            </tr>
+            <tr>
+                <td>Fournisseur</td>
+                <td>"Fournisseur : Lumen"</td>
+            </tr>
+            <tr>
+                <td>IP VPN</td>
+                <td>"Adresse IP du VPN : 37.19.199.137"</td>
+            </tr>
+            <tr>
+                <td>Trafic total</td>
+                <td>"Trafic total : 12 Mo"</td>
+            </tr>
+            <tr>
+                <td>Trafic actuel</td>
+                <td>"Trafic actuel : 416 o/s, 0 o/s"</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Compatibilité</h2>
+    <ul>
+        <li>NVDA 2023.1 et versions ultérieures</li>
+        <li>ProtonVPN pour Windows</li>
+    </ul>
+
+    <h2>Auteur</h2>
+    <p><strong>Mama Sene</strong></p>
+
+    <div class="note">
+        <strong>Note :</strong> Projet communautaire non affilié à Proton AG.
+    </div>
+
+    <h2>Licence</h2>
+    <p>GPL v2</p>
+</body>
+
+</html>
